@@ -135,8 +135,15 @@
     position: absolute; inset: 0;
     opacity: 0; transform: scale(1.04);
     transition: opacity .9s ease, transform 6s ease;
-    background-size: cover; background-position: center;
   }
+  /* blurred backdrop fills the frame; full photo shown on top with no cropping */
+  .slide::before, .slide::after {
+    content: ""; position: absolute; inset: 0;
+    background-image: var(--img);
+    background-position: center; background-repeat: no-repeat;
+  }
+  .slide::before { background-size: cover; filter: blur(22px) brightness(.9) saturate(1.1); transform: scale(1.15); }
+  .slide::after  { background-size: contain; }
   .slide.active { opacity: 1; transform: scale(1); z-index: 1; }
 
   .placeholder {
@@ -403,7 +410,7 @@
     images.forEach((src,i)=>{
       const slide=document.createElement('div');
       slide.className='slide'+(i===current?' active':'');
-      slide.style.backgroundImage=`url(${src})`;
+      slide.style.setProperty('--img', `url("${src}")`);
       stage.appendChild(slide);
 
       const dot=document.createElement('button');
@@ -498,6 +505,17 @@
   audio.onplay=()=>{ fab.innerHTML=pauseIcon; fab.classList.add('playing'); };
   audio.onpause=()=>{ fab.innerHTML=playIcon; fab.classList.remove('playing'); };
 
+  /* try to start music automatically; if the browser blocks autoplay,
+     start it on the visitor's first interaction (click / scroll / key / touch) */
+  function autoPlayMusic(){
+    if(!audio.src) return;
+    audio.play().catch(()=>{
+      const kick=()=>{ audio.play().catch(()=>{}); };
+      ['pointerdown','keydown','touchstart','scroll'].forEach(ev=>
+        window.addEventListener(ev, kick, { once:true, passive:true }));
+    });
+  }
+
   /* ---------- permanent gallery (served from the site, visible to everyone) ---------- */
   async function loadGallery(){
     try{
@@ -511,6 +529,7 @@
         audio.src = 'gallery/' + data.music;
         trackName.textContent = '🎵 ' + data.music;
         fab.classList.add('show');
+        autoPlayMusic();
       }
       if(images.length){ current = 0; render(); restart(); }
     }catch(e){ /* no gallery yet — slideshow stays in upload mode */ }
